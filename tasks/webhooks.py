@@ -5,8 +5,7 @@ import requests
 from db.models import Notification
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def send_notification_to_webhook(notification: Notification, webhook_url: str) -> None:

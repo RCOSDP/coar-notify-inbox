@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     allowed_admin_origins: set[str] = set()
     allowed_origins: set[str] = set()
     mongo_db_uri: str = ""
+    mongo_db_name: str = ""
     on_receive_notification_webhook_url: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
