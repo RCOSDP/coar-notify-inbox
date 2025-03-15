@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from db.models import Notification
 
 # pytest tests/db/models_test.py
@@ -16,15 +18,15 @@ def test_notification_provides_default_updated_value(valid_notification_payload)
 def test_notification_validate_updated_value(valid_notification_payload):
     valid_notification_payload["updated"] = "2021-01-01T00:00:00Z"
     notification = Notification(**valid_notification_payload)
-    assert notification.updated == "2021-01-01T00:00:00Z"
+    assert notification.updated == datetime.fromisoformat("2021-01-01T00:00:00Z")
 
     valid_notification_payload["updated"] = "2021-01-01T00:00:00+09:00"
     notification = Notification(**valid_notification_payload)
-    assert notification.updated == "2021-01-01T00:00:00+09:00"
+    assert notification.updated == datetime.fromisoformat("2021-01-01T00:00:00+09:00")
 
     valid_notification_payload["updated"] = "2021-01-01T00:00:00+0900"
     notification = Notification(**valid_notification_payload)
-    assert notification.updated == "2021-01-01T00:00:00+09:00"
+    assert notification.updated == datetime.fromisoformat("2021-01-01T00:00:00+09:00")
 
 
 def test_notification_handles_at_context_alias(valid_notification_payload):

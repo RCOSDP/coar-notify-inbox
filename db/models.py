@@ -1,7 +1,6 @@
-from datetime import timezone
+from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from utils import InboxDatetime
 
 class ActorResource(BaseModel):
     id: str
@@ -27,6 +26,7 @@ class DocumentObject(BaseModel):
     type: list[str] | str | None = None
     ietf_cite_as: str | None = Field(alias="ietf:cite-as", default=None)
     url: UrlObject | None = None
+    name: str | None = None
 
 
 class ContextObject(BaseModel):
@@ -37,8 +37,8 @@ class ContextObject(BaseModel):
 
 class Notification(BaseModel):
     id: str
-    updated: str | None = Field(
-        default_factory=lambda: InboxDatetime.now(timezone.utc).rfc3339format()
+    updated: datetime | None = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
     )
     at_context: list[str] = Field(alias="@context")
     type: list[str] | str
@@ -57,15 +57,10 @@ class Notification(BaseModel):
 
     @field_validator("updated")
     @classmethod
-    def validate_updated(cls, v: str):
-        try:
-            v = v.replace("Z", "+00:00")
-            if len(v) > 6 and v[-3] == ':':
-                v = v[:-3] + v[-2:]
-            t = InboxDatetime.strptime(v, '%Y-%m-%dT%H:%M:%S%z')
-        except ValueError:
-            raise ValueError("Invalid ISO 8601 datetime format")
-        return t.rfc3339format()
+    def validate_updated(cls, v: str | datetime):
+        if isinstance(v, str):
+            return datetime.fromisoformat(v)
+        return v
 
 
 class NotificationState(BaseModel):

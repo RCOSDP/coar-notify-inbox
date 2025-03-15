@@ -1,5 +1,6 @@
 from datetime import datetime
 
+
 class InboxDatetime(datetime):
 
     def rfc3339format(self):
@@ -12,3 +13,10 @@ class InboxDatetime(datetime):
         "2025-03-05T23:00:00+09:00"
         """
         return self.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def datetime_to_inboxdatetime(dt: datetime):
+    return InboxDatetime.fromisoformat(dt.isoformat())
+
+
+dt2idt = datetime_to_inboxdatetime
