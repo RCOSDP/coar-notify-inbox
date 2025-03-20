@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     mongo_db_name: str = ""
     on_receive_notification_webhook_url: str = ""
 
+    enable_push_notifications: bool = True
+    subscriber: str = "mailto:"
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    icon:str = ""
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

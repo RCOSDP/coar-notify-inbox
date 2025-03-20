@@ -70,3 +70,17 @@ class NotificationState(BaseModel):
 
 class NotificationStateUpdatePayload(BaseModel):
     read: bool
+
+
+class Subscription(BaseModel):
+    target: str
+    endpoint: str
+    expiration_time: str | None = Field(alias="expirationTime", default=None)
+    keys: dict[str, str] | None = None
+
+
+class User(BaseModel):
+    uri: str
+    displayname: str
+    timezone: str = "UTC"
+    disabled: bool = False

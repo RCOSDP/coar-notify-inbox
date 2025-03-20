@@ -10,7 +10,9 @@ from fastapi import Query
 
 from config import get_settings, PAGE_LIMIT
 from db.notifications import get_notifications, get_notifications_collection
-from routers import inbox_router, notification_state_router
+from routers import (
+    inbox_router, notification_state_router, subscription_router
+)
 
 templates = Jinja2Templates(directory="templates")
 templates.env.globals['max'] = max
@@ -34,6 +36,7 @@ def create_app() -> FastAPI:
 
     _app.include_router(inbox_router)
     _app.include_router(notification_state_router)
+    _app.include_router(subscription_router)
 
     @_app.get("/health", status_code=200)
     async def health_check():
@@ -43,7 +46,11 @@ def create_app() -> FastAPI:
     async def home(request: Request, page: int = Query(1, ge=1),
                    page_size: int = Query(PAGE_LIMIT, ge=1)):
         def ppjson(value, indent=2):
-            return json.dumps({**value, "updated": value["updated"].isoformat()}, indent=indent)
+            return json.dumps(
+                {**value, "updated": value["updated"].isoformat()},
+                indent=indent,
+                ensure_ascii=False
+            )
 
         def dateparse(value):
             return datetime.fromisoformat(value)

@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from config import get_settings
 from db.models import Notification
 from db.notifications import create_notification, get_notifications, get_notification
+from services.push import send_webpush
 from tasks.webhooks import send_notification_to_webhook
 
 
@@ -26,7 +27,7 @@ def get_inbox_url(request: Request) -> str:
 
 
 def get_notification_links(notifications: list[Notification], base_url: str) -> list[str]:
-    return [f"{base_url}{notification['id']}" for notification in notifications]
+    return [f"{base_url}/{notification['id']}" for notification in notifications]
 
 
 @router.options("/", include_in_schema=False)
@@ -71,6 +72,9 @@ async def add_notification(request: Request, background_tasks: BackgroundTasks,
             notification,
             get_settings().on_receive_notification_webhook_url,
         )
+
+    if notification_id and get_settings().enable_push_notifications:
+        background_tasks.add_task(send_webpush, notification)
 
     return Response(
         headers={"Location": f"{get_inbox_url(request)}/{notification_id}"},
