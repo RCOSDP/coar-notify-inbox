@@ -1,6 +1,6 @@
 from db import get_collection
 from db.models import Subscription, User
-
+from utils import logger
 
 SUBSCRIPTIONS_COLLECTION_NAME = "subscriptions"
 USERS_COLLECTION_NAME = "users"
@@ -41,10 +41,15 @@ async def delete_subscription(endpoint: str) -> Subscription | None:
     collection = await get_subscriptions_collection()
     subscription = await collection.find_one({"endpoint": endpoint}, {"_id": 0})
     if subscription:
-        result = await collection.delete_one({"endpoint": endpoint})
-        print(result.deleted_count)
+        await collection.delete_one({"endpoint": endpoint})
         return Subscription(**subscription)
     return None
+
+
+async def delete_subscriptions(endpoints: list[str]) -> None:
+    collection = await get_subscriptions_collection()
+    await collection.delete_many({"endpoint": {"$in": endpoints}})
+    logger.info(f"Deleted {len(endpoints)} subscriptions")
 
 
 async def get_user(uri: str) -> User:
@@ -56,7 +61,7 @@ async def get_user(uri: str) -> User:
 async def set_user(user: User) -> None:
     collection = await get_users_collection()
     await collection.update_one(
-        {"uri": User.uri},
+        {"uri": user.uri},
         {"$set": user.model_dump(by_alias=True)},
         upsert=True
     )
