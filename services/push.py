@@ -46,7 +46,7 @@ async def send_webpush(notification: Notification):
             if ex.response is not None and ex.response.status_code in [404, 410]:
                 not_sent.append(subscription.endpoint)
 
-    await delete_subscriptions(not_sent)
+    await delete_subscriptions(not_sent) if not_sent else None
 
 
 def make_contents(notification: Notification, user: User) -> tuple[str, str, str]:
