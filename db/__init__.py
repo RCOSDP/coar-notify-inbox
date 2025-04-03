@@ -6,7 +6,7 @@ from config import get_settings
 async def get_db():
     if get_settings().mongo_db_uri:
         client = AsyncIOMotorClient(get_settings().mongo_db_uri)
-        return client.notification_store
+        return client[get_settings().mongo_db_name]
 
     return None
 

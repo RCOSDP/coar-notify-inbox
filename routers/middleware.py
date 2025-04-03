@@ -5,7 +5,7 @@ from fastapi import HTTPException, Request
 
 from config import get_settings
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger("uvicorn.error")
 
 
 def ensure_client_is_admin(request: Request):

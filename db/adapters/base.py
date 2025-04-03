@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Union
 
 
 class BaseDBAdapter(ABC):
@@ -10,7 +9,7 @@ class BaseDBAdapter(ABC):
 
     @abstractmethod
     async def find_one(self, collection_name: str, db_filter: dict,
-                       projection: dict = None) -> Union[dict, None]:
+                       projection: dict = None) -> dict | None:
         pass
 
     @abstractmethod

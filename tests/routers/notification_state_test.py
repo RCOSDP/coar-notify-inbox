@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 
@@ -20,10 +21,15 @@ def test_add_notification_succeeds_when_valid_and_admin(mock_update_notification
 
 
 @patch("routers.notification_state.update_notification_state")
-def test_add_notification_fails_when_valid_but_non_admin(mock_update_notification_state,
+@patch("routers.middleware.ensure_client_is_admin")
+def test_add_notification_fails_when_valid_but_non_admin(mock_ensure_client_is_admin,
+                                                         mock_update_notification_state,
                                                          client: TestClient):
     mock_notification_id = "1234-5678-9012-3456"
     payload = {"read": True}
+
+    mock_ensure_client_is_admin.side_effect = HTTPException(
+        status_code=403, detail="Access forbidden: IP not allowed")
 
     response = client.patch(
         f"/notification_states/{mock_notification_id}",

@@ -4,6 +4,7 @@ from fastapi import (
     BackgroundTasks,
     Body,
     HTTPException,
+    Query,
     Request,
     Response,
 )
@@ -12,6 +13,7 @@ from fastapi.responses import JSONResponse
 from config import get_settings
 from db.models import Notification
 from db.notifications import create_notification, get_notifications, get_notification
+from services.push import send_webpush
 from tasks.webhooks import send_notification_to_webhook
 
 
@@ -26,7 +28,7 @@ def get_inbox_url(request: Request) -> str:
 
 
 def get_notification_links(notifications: list[Notification], base_url: str) -> list[str]:
-    return [f"{base_url}{notification['id']}" for notification in notifications]
+    return [f"{base_url}/{notification['id']}" for notification in notifications]
 
 
 @router.options("/", include_in_schema=False)
@@ -37,9 +39,9 @@ async def read_inbox_options():
 
 @router.get("/", include_in_schema=False)
 @router.get("")
-async def read_inbox(request: Request) -> JSONResponse:
+async def read_inbox(request: Request, target: str = Query(None)) -> JSONResponse:
     inbox_url = get_inbox_url(request)
-    notifications = await get_notifications()
+    notifications = await get_notifications(target=target)
 
     return JSONResponse(
         headers={"content-type": "application/ld+json"},
@@ -54,8 +56,12 @@ async def read_inbox(request: Request) -> JSONResponse:
 @router.post("/", include_in_schema=False)
 @router.post("")
 async def add_notification(request: Request, background_tasks: BackgroundTasks,
-                           payload: dict = Body(...)):
-    notification = Notification(**payload)
+                           notification: Notification = Body(...)):
+    if await get_notification(notification.id) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="ID conflict: notification with this ID already exists.",
+        )
 
     notification_id = await create_notification(notification)
 
@@ -65,6 +71,9 @@ async def add_notification(request: Request, background_tasks: BackgroundTasks,
             notification,
             get_settings().on_receive_notification_webhook_url,
         )
+
+    if notification_id and get_settings().enable_push_notifications:
+        background_tasks.add_task(send_webpush, notification)
 
     return Response(
         headers={"Location": f"{get_inbox_url(request)}/{notification_id}"},
@@ -82,4 +91,4 @@ async def read_notification(notification_id: str):
             content=json.dumps(notification, default=str),
         )
 
-    raise HTTPException(status_code=404, detail="Notification not found")
+    raise HTTPException(status_code=404, detail="Notification not found.")
