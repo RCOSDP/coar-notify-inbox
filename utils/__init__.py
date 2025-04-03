@@ -1,4 +1,8 @@
+import logging
 from datetime import datetime
+
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class InboxDatetime(datetime):

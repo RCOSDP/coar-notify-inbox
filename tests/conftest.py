@@ -163,3 +163,35 @@ def valid_offer_review_payload():
             "coar-notify:ReviewAction"
         ]
     }
+
+
+@pytest.fixture
+def valid_subscribe_payload():
+    return {
+        "target": "https://example.com",
+        "endpoint": "https://example.com/endpoint",
+        "expirationTime": None,
+        "keys": {"p256dh": "key1", "auth": "key2"},
+    }
+
+
+@pytest.fixture
+def valid_userprofile_payload():
+    return {
+        "uri": "https://example.com/user",
+        "displayname": "Test User",
+        "language": "en",
+        "timezone": "GMT",
+    }
+
+
+@pytest.fixture
+def valid_push_template_payload():
+    return {
+        "name": "Test Template",
+        "description": "Test Description",
+        "type": [""],
+        "language": "en",
+        "title": "Test Title",
+        "body": "Test Body: {{ object_uri }}",
+    }

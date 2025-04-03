@@ -38,11 +38,18 @@ async def get_notification(notification_id: str) -> Notification:
     return notification
 
 
-async def get_notifications(page: int = 1, page_size: int = PAGE_LIMIT) -> list[Notification]:
+async def get_notifications(
+        page: int = 1, page_size: int = PAGE_LIMIT, target: str = None
+) -> list[Notification]:
     collection = await get_notifications_collection()
     skip = (page - 1) * page_size
+
+    query = {}
+    if target:
+        query["target.id"] = target
+
     notifications = await collection \
-        .find({}, {"_id": 0}) \
+        .find(query, {"_id": 0}) \
         .sort("updated", DESCENDING) \
         .skip(skip) \
         .limit(page_size) \

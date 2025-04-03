@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ActorResource(BaseModel):
@@ -55,13 +55,6 @@ class Notification(BaseModel):
         validate_assignment=True
     )
 
-    @field_validator("updated")
-    @classmethod
-    def validate_updated(cls, v: str | datetime):
-        if isinstance(v, str):
-            return datetime.fromisoformat(v)
-        return v
-
 
 class NotificationState(BaseModel):
     id: str
@@ -70,3 +63,33 @@ class NotificationState(BaseModel):
 
 class NotificationStateUpdatePayload(BaseModel):
     read: bool
+
+
+class Subscription(BaseModel):
+    target: str
+    endpoint: str
+    expiration_time: str | None = Field(alias="expirationTime", default=None)
+    keys: dict[str, str] | None = None
+
+
+class UserProfile(BaseModel):
+    uri: str
+    displayname: str | None = None
+    language: str = "en"
+    timezone: str = "GMT"
+    disabled: bool = False
+
+
+class PushTemplate(BaseModel):
+    name: str
+    description: str
+    type: list[str] | str
+    language: str
+    title: str
+    body: str
+
+    model_config = ConfigDict(
+        use_alias=True,
+        populate_by_name=True,
+        validate_assignment=True
+    )
