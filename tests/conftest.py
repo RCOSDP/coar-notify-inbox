@@ -192,6 +192,6 @@ def valid_push_template_payload():
         "description": "Test Description",
         "type": [""],
         "language": "en",
-        "title": "Test Title",
+        "title": "Test Title: {{object_name}}",
         "body": "Test Body: {{ object_uri }}",
     }

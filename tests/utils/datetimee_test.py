@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta, timezone
-from utils import InboxDatetime, datetime_to_inboxdatetime
+from utils.datetime import InboxDatetime, datetime_to_inboxdatetime
 
 
 def test_inboxdatetime_rfc3339format():

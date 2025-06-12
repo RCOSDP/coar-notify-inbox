@@ -1,11 +1,8 @@
 import json
-import logging
 import requests
 
 from db.models import Notification
-
-
-logger = logging.getLogger("uvicorn.error")
+from utils import logger
 
 
 def send_notification_to_webhook(notification: Notification, webhook_url: str) -> None:
