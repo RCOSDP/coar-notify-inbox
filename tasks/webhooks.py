@@ -1,4 +1,3 @@
-import json
 import logging
 import requests
 
@@ -14,7 +13,7 @@ def send_notification_to_webhook(notification: Notification, webhook_url: str) -
         response = requests.post(
             url=webhook_url,
             headers={"content-type": "application/ld+json"},
-            json=json.dumps(notification, default=str),
+            json=notification.model_dump(by_alias=True, mode="json"),
             timeout=(10, 10),
         )
 
