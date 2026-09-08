@@ -12,9 +12,11 @@ def test_read_inbox_options(client: TestClient):
     assert response.headers["Accept-Post"] == "application/ld+json"
 
 
+@patch("routers.inbox.get_notifications_collection")
 @patch("routers.inbox.get_notifications")
-def test_read_inbox(mock_get_notifications, client: TestClient):
+def test_read_inbox(mock_get_notifications, mock_collection, client: TestClient):
     mock_get_notifications.return_value = []
+    mock_collection.return_value.count_documents.return_value = 0
 
     response = client.get("/inbox/")
 
@@ -77,3 +79,52 @@ def test_add_notification_validation_failure(mock_create_notification,
             }
         ]
     }
+
+
+@patch("routers.inbox.get_notifications_collection")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_next_page_link(mock_get_notifications, mock_collection, client: TestClient):
+    mock_get_notifications.return_value = []
+    mock_collection.return_value.count_documents.return_value = 120
+
+    response = client.get("/inbox/?page_size=50")
+
+    assert 'rel="next"' in response.headers["Link"]
+    assert "page=2" in response.headers["Link"]
+    assert 'rel="prev"' not in response.headers["Link"]
+
+
+@patch("routers.inbox.get_notifications_collection")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_prev_and_next_page_links(
+    mock_get_notifications, mock_collection, client: TestClient
+):
+    mock_get_notifications.return_value = []
+    mock_collection.return_value.count_documents.return_value = 120
+
+    response = client.get("/inbox/?page=2&page_size=50")
+
+    assert 'rel="next"' in response.headers["Link"]
+    assert 'rel="prev"' in response.headers["Link"]
+
+
+@patch("routers.inbox.get_notifications_collection")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_no_page_links(mock_get_notifications, mock_collection, client: TestClient):
+    mock_get_notifications.return_value = []
+    mock_collection.return_value.count_documents.return_value = 0
+
+    response = client.get("/inbox/")
+
+    assert "Link" not in response.headers
+
+
+@patch("routers.inbox.get_notifications_collection")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_pages_the_query(mock_get_notifications, mock_collection, client: TestClient):
+    mock_get_notifications.return_value = []
+    mock_collection.return_value.count_documents.return_value = 0
+
+    client.get("/inbox/?page=3&page_size=10")
+
+    mock_get_notifications.assert_called_once_with(page=3, page_size=10)
