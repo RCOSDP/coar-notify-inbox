@@ -188,3 +188,27 @@ def test_read_notification_not_found(
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Notification not found."}
+
+
+def test_read_inbox_refuses_an_oversized_page(client: TestClient):
+    """page_size had a lower bound but no upper one, so one request could ask for everything."""
+    from config import MAX_PAGE_SIZE
+
+    response = client.get(f"/inbox/?page_size={MAX_PAGE_SIZE + 1}")
+
+    assert response.status_code == 422
+
+
+@patch("routers.inbox.count_notifications")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_allows_the_largest_page(
+    mock_get_notifications, mock_count_notifications, client: TestClient
+):
+    from config import MAX_PAGE_SIZE
+
+    mock_get_notifications.return_value = []
+    mock_count_notifications.return_value = 0
+
+    response = client.get(f"/inbox/?page_size={MAX_PAGE_SIZE}")
+
+    assert response.status_code == 200

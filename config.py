@@ -4,6 +4,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PAGE_LIMIT = 50
 
+# The largest page a caller may ask for. Both listings took page_size with a lower bound but no
+# upper one, so a single request could ask for every notification at once - the inbox is a public
+# endpoint, so that is a cheap way to make it do a lot of work. Asking for more is refused (422)
+# rather than quietly clamped, so a caller can tell the difference between "that is too many" and
+# "that is all there is".
+MAX_PAGE_SIZE = 500
+
 
 class Settings(BaseSettings):
     allowed_admin_origins: set[str] = set()
