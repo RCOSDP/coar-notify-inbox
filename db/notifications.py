@@ -1,72 +1,82 @@
-import uuid
-
-from pymongo import DESCENDING
-
 from config import PAGE_LIMIT
-from db import get_collection
+from db import get_adapter
 from db.models import Notification
 
 
 NOTIFICATIONS_COLLECTION_NAME = "notifications"
 NOTIFICATION_STATES_COLLECTION_NAME = "notification_states"
 
+DESCENDING = -1
+
 
 class FailedToFindNotificationState(Exception):
     pass
 
 
+class NotificationsCollection:
+    """Kept for callers that only need a count."""
+
+    async def count_documents(self, db_filter=None):
+        return await count_notifications(db_filter or {})
+
+
 async def get_notifications_collection():
-    return await get_collection(NOTIFICATIONS_COLLECTION_NAME)
-
-
-async def get_notification_states_collection():
-    return await get_collection(NOTIFICATION_STATES_COLLECTION_NAME)
+    return NotificationsCollection()
 
 
 async def create_notification(notification: Notification) -> str:
-    notification_collection = await get_notifications_collection()
-    notification_states_collection = await get_notification_states_collection()
-    await notification_collection.insert_one(notification.model_dump(by_alias=True))
-    await notification_states_collection.insert_one({"id": notification.id, "read": False})
-
+    adapter = await get_adapter()
+    await adapter.insert_one(
+        NOTIFICATIONS_COLLECTION_NAME, notification.model_dump(by_alias=True)
+    )
+    await adapter.insert_one(
+        NOTIFICATION_STATES_COLLECTION_NAME, {"id": notification.id, "read": False}
+    )
     return notification.id
 
 
 async def get_notification(notification_id: str) -> Notification:
-    collection = await get_notifications_collection()
-    notification = await collection.find_one({"id": notification_id}, {"_id": 0})
-    return notification
+    adapter = await get_adapter()
+    return await adapter.find_one(NOTIFICATIONS_COLLECTION_NAME, {"id": notification_id})
 
 
-async def get_notifications(page: int = 1, page_size: int = PAGE_LIMIT) -> list[Notification]:
-    collection = await get_notifications_collection()
-    skip = (page - 1) * page_size
-    notifications = await collection \
-        .find({}, {"_id": 0}) \
-        .sort("updated", DESCENDING) \
-        .skip(skip) \
-        .limit(page_size) \
-        .to_list(length=page_size)
-    return notifications
+async def get_notifications(
+        page: int = 1, page_size: int = PAGE_LIMIT
+) -> list[Notification]:
+    adapter = await get_adapter()
+    return await adapter.find(
+        NOTIFICATIONS_COLLECTION_NAME,
+        {},
+        sort=("updated", DESCENDING),
+        skip=(page - 1) * page_size,
+        limit=page_size,
+    )
 
 
-async def delete_notification(notification_id: uuid.UUID) -> None:
-    collection = await get_notifications_collection()
-    await collection.delete_one({"id": notification_id})
+async def delete_notification(notification_id) -> None:
+    adapter = await get_adapter()
+    await adapter.delete_one(NOTIFICATIONS_COLLECTION_NAME, {"id": notification_id})
 
 
 async def get_notification_state_ids_by_status(read: bool) -> list[str]:
-    collection = await get_notification_states_collection()
-    notification_states = await collection \
-        .find({"read": read}, {"_id": 0}) \
-        .to_list(length=PAGE_LIMIT)
-    return [state["id"] for state in notification_states]
+    adapter = await get_adapter()
+    states = await adapter.find(
+        NOTIFICATION_STATES_COLLECTION_NAME, {"read": read}, limit=PAGE_LIMIT
+    )
+    return [state["id"] for state in states]
 
 
 async def update_notification_state(notification_id: str, read: bool) -> None:
-    collection = await get_notification_states_collection()
-    result = await collection.update_one({"id": notification_id}, {"$set": {"read": read}})
+    adapter = await get_adapter()
+    result = await adapter.update_one(
+        NOTIFICATION_STATES_COLLECTION_NAME, {"id": notification_id}, {"read": read}
+    )
+    if result.matched == 0:
+        raise FailedToFindNotificationState(
+            f"Could not find notification state for notification {notification_id}"
+        )
 
-    if result.matched_count == 0:
-        raise FailedToFindNotificationState(f"Could not find notification state for "
-                                            f"notification {notification_id}")
+
+async def count_notifications(db_filter: dict = None) -> int:
+    adapter = await get_adapter()
+    return await adapter.count(NOTIFICATIONS_COLLECTION_NAME, db_filter or {})

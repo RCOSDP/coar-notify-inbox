@@ -1,16 +1,25 @@
-from motor.motor_asyncio import AsyncIOMotorClient
+import os
 
 from config import get_settings
 
+from .adapters.base import BaseDBAdapter
+from .adapters.mongo import MongoAdapter
+from .adapters.postgres import PostgresAdapter
 
-async def get_db():
-    if get_settings().mongo_db_uri:
-        client = AsyncIOMotorClient(get_settings().mongo_db_uri)
-        return client.notification_store
+MONGO_DB_NAME = "notification_store"
 
-    return None
+_ADAPTER = None
 
 
-async def get_collection(collection_name: str):
-    database = await get_db()
-    return database[collection_name]
+async def get_adapter() -> BaseDBAdapter:
+    """Return the adapter for the configured backend."""
+    global _ADAPTER  # pylint: disable=global-statement
+    if _ADAPTER is None:
+        dsn = os.environ.get("INBOX_PG_DSN")
+        if dsn:
+            _ADAPTER = PostgresAdapter(dsn)
+        elif get_settings().mongo_db_uri:
+            _ADAPTER = MongoAdapter(get_settings().mongo_db_uri, MONGO_DB_NAME)
+        else:
+            raise RuntimeError("no database configured: set INBOX_PG_DSN or MONGO_DB_URI")
+    return _ADAPTER
