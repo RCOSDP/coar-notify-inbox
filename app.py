@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi import Query
 
 from config import get_settings, PAGE_LIMIT
-from db.notifications import get_notifications, get_notifications_collection
+from db.notifications import count_notifications, get_notifications
 from routers import (
     inbox_router, notification_state_router, subscription_router
 )
@@ -59,8 +59,7 @@ def create_app() -> FastAPI:
         templates.env.filters["tojson_pretty"] = ppjson
 
         notifications = await get_notifications(page=page, page_size=page_size)
-        collection = await get_notifications_collection()
-        total_notifications = await collection.count_documents({})
+        total_notifications = await count_notifications()
         total_pages = (total_notifications + page_size - 1) // page_size
 
         return templates.TemplateResponse(
