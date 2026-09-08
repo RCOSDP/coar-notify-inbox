@@ -106,6 +106,54 @@ ON_RECEIVE_NOTIFICATION_WEBHOOK_URL=https://<some-endpoint>
 ```
 This will cause the inbox to send a POST request to the provided URL with the notification as the JSON body.
 
+### Subscription tokens
+
+`/subscribe`, `/unsubscribe` and `/userprofile` decide where a person's notifications are
+delivered, and a target URI is usually derived from a user id - so knowing one must not be enough
+to point someone else's notifications at your own push endpoint. The repository signs a
+short-lived token naming the target it has just authenticated, and sends it as
+`Authorization: Bearer <JWT>`; the inbox only has to trust the signature.
+
+```bash
+SUBSCRIPTION_TOKEN_SECRET=<shared secret>
+```
+
+Leaving it empty keeps the endpoints open, as they were before tokens existed, and logs a warning
+on every call - an upgrade does not break an existing deployment, but it does not protect it
+either.
+
+The claims are `sub` (the target), `iat` and `exp` (five minutes by default). Two further settings
+narrow what a signature alone proves, because the secret is symmetric and anything holding it can
+mint a token:
+
+```bash
+SUBSCRIPTION_TOKEN_ISSUER=https://repository.example.org
+SUBSCRIPTION_TOKEN_AUDIENCE=https://inbox.example.org
+```
+
+When set, `iss` and `aud` must be present and match, so a secret that is also used somewhere else,
+or a token minted for a different inbox, is not silently accepted here. An empty one is not
+checked.
+
+#### Rotating the secret
+
+Name the key and the inbox can tell which one a token was signed with, so the two sides do not
+have to be restarted at the same time:
+
+```bash
+# on the inbox: accept both, keep naming the old one as current
+SUBSCRIPTION_TOKEN_SECRET=<old secret>
+SUBSCRIPTION_TOKEN_KEY_ID=2026-06
+SUBSCRIPTION_TOKEN_PREVIOUS_SECRETS='{"2026-09": "<new secret>"}'
+
+# then on the repository: sign with the new one
+# then on the inbox: make the new one current and drop the old one
+```
+
+`SUBSCRIPTION_TOKEN_PREVIOUS_SECRETS` verifies but never signs. A token that names a key the inbox
+does not hold is refused; one that names no key at all - which is what a repository that predates
+this sends - is checked against every accepted key.
+
 ### Notification state management
 
 When you receive a notification, you may want to keep track of the state of the notification. For example, you may want 
