@@ -4,6 +4,26 @@ A basic implementation of an LDN inbox intended for COAR Notify developments pur
 
 There is an instance of this inbox running at https://coar-notify-inbox.fly.dev .
 
+## Database
+
+The inbox stores its data through an adapter (`db/adapters/`), so the backend is chosen with
+one environment variable and nothing else in the application changes.
+
+| Backend | Setting | Notes |
+|---|---|---|
+| MongoDB | `MONGO_DB_URI`, `MONGO_DB_NAME` | The original backend; unchanged. |
+| PostgreSQL | `INBOX_PG_DSN` | Documents are stored as JSONB. |
+
+`INBOX_PG_DSN` takes precedence when both are set. For PostgreSQL point it at a database and the
+table is created on first use:
+
+```bash
+export INBOX_PG_DSN=postgresql://inbox:ibpass123@localhost:5432/inbox
+```
+
+To add another backend, implement `db/adapters/base.py:BaseDBAdapter` and return it from
+`db/__init__.py:get_adapter()`.
+
 ## Running the app
 
 ### Running in a Python virtual environment
