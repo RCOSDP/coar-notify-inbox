@@ -5,6 +5,7 @@ import pytest
 from db.adapters.base import UpdateResult
 from db.models import PushTemplate, Subscription, UserProfile
 from db.subscriptions import (
+    normalise_type,
     PUSH_TEMPLATES_COLLECTION_NAME,
     SUBSCRIPTIONS_COLLECTION_NAME,
     USERS_COLLECTION_NAME,
@@ -167,3 +168,29 @@ async def test_get_template(mock_get_adapter, valid_push_template_payload):
         {"type": expected_template.type, "language": "en"},
     )
     assert template == expected_template
+
+
+def test_normalise_type_sorts_a_list():
+    assert normalise_type(["coar-notify:IngestAction", "Announce"]) == [
+        "Announce", "coar-notify:IngestAction"
+    ]
+
+
+def test_normalise_type_leaves_a_string_alone():
+    assert normalise_type("Announce") == "Announce"
+
+
+@pytest.mark.asyncio
+@patch("db.subscriptions.get_adapter")
+async def test_get_template_matches_regardless_of_type_order(mock_get_adapter):
+    """The COAR Notify type is a set, so the lookup must not depend on the order it arrives in."""
+    adapter = AsyncMock()
+    adapter.find_one.return_value = None
+    mock_get_adapter.return_value = adapter
+
+    await get_template(["coar-notify:IngestAction", "Announce"], "en")
+
+    adapter.find_one.assert_called_once_with(
+        PUSH_TEMPLATES_COLLECTION_NAME,
+        {"type": ["Announce", "coar-notify:IngestAction"], "language": "en"},
+    )
