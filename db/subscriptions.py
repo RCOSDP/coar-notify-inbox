@@ -32,6 +32,15 @@ async def get_subscriptions(target: str):
     return [Subscription(**subscription) for subscription in subscriptions]
 
 
+async def get_subscription(endpoint: str):
+    """Look up a single subscription, so a caller can be checked against its target."""
+    adapter = await get_adapter()
+    subscription = await adapter.find_one(
+        SUBSCRIPTIONS_COLLECTION_NAME, {"endpoint": endpoint}
+    )
+    return Subscription(**subscription) if subscription is not None else None
+
+
 async def delete_subscription(endpoint: str) -> int:
     adapter = await get_adapter()
     return await adapter.delete_one(SUBSCRIPTIONS_COLLECTION_NAME, {"endpoint": endpoint})

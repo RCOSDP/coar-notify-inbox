@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     subscriber: str = "mailto:"
     vapid_public_key: str = ""
     vapid_private_key: str = ""
-    icon:str = ""
+    icon: str = ""
+    # Shared secret the repository signs subscription tokens with. Empty keeps the
+    # subscription endpoints open, as they were before tokens existed.
+    subscription_token_secret: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

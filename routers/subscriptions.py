@@ -3,11 +3,18 @@ from pydantic import BaseModel, Field
 
 from config import get_settings
 from db.models import PushTemplate
-from db.subscriptions import set_subscription, delete_subscription, set_template, set_user
+from db.subscriptions import (
+    delete_subscription,
+    get_subscription,
+    set_subscription,
+    set_template,
+    set_user,
+)
 from utils import logger
 
 from .inbox import router as inbox_router
 from .middleware import admin_only
+from .subscription_token import authorise
 
 
 router = APIRouter(
@@ -39,7 +46,11 @@ async def get_vapid_public_key():
 
 
 @router.post("/subscribe")
-async def subscribe(subscription: SubscribeRequest):
+async def subscribe(request: Request, subscription: SubscribeRequest):
+    # A subscription decides where someone's notifications go, so the caller has to prove the
+    # repository authenticated that target - knowing the URI is not enough.
+    authorise(request, subscription.target)
+
     if await set_subscription(subscription):
         logger.info(
             f"Subscribing: {subscription.target}, "
@@ -55,7 +66,13 @@ async def subscribe(subscription: SubscribeRequest):
 
 
 @router.post("/unsubscribe")
-async def unsubscribe(r: UnsubscribeRequest):
+async def unsubscribe(request: Request, r: UnsubscribeRequest):
+    # The request carries only an endpoint, so the target to authorise against comes from the
+    # stored subscription. A caller who cannot act for that target cannot remove it.
+    existing = await get_subscription(r.endpoint)
+    if existing is not None:
+        authorise(request, existing.target)
+
     count = await delete_subscription(r.endpoint)
     if count == 0:
         logger.warning(f"Subscription not found: {r.endpoint[:24]}...")
@@ -70,7 +87,10 @@ async def unsubscribe(r: UnsubscribeRequest):
 
 
 @router.post("/userprofile")
-async def user_profile(user: UserProfileRequest):
+async def user_profile(request: Request, user: UserProfileRequest):
+    # The profile picks the language a push is rendered in, so it is authorised the same way.
+    authorise(request, user.uri)
+
     if await set_user(user):
         logger.info(f"Setting user profile: {user.uri}")
         return Response(status_code=201)

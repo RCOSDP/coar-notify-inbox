@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -36,9 +36,11 @@ def test_subscribe_already_exists(mock_set_subscription, client: TestClient, val
     mock_set_subscription.assert_called_once_with(SubscribeRequest(**valid_subscribe_payload))
 
 
+@patch("routers.subscriptions.get_subscription")
 @patch("routers.subscriptions.delete_subscription")
-def test_unsubscribe(mock_delete_subscription, client: TestClient):
+def test_unsubscribe(mock_delete_subscription, mock_get_subscription, client: TestClient):
     mock_delete_subscription.return_value = 1
+    mock_get_subscription.return_value = None
 
     payload = {"endpoint": "https://example.com/endpoint"}
 
@@ -48,9 +50,13 @@ def test_unsubscribe(mock_delete_subscription, client: TestClient):
     mock_delete_subscription.assert_called_once_with(payload["endpoint"])
 
 
+@patch("routers.subscriptions.get_subscription")
 @patch("routers.subscriptions.delete_subscription")
-def test_unsubscribe_not_found(mock_delete_subscription, client: TestClient):
+def test_unsubscribe_not_found(
+    mock_delete_subscription, mock_get_subscription, client: TestClient
+):
     mock_delete_subscription.return_value = 0
+    mock_get_subscription.return_value = None
 
     payload = {"endpoint": "https://example.com/endpoint"}
 
@@ -99,3 +105,41 @@ def test_update_push_template_already_exists(mock_set_template, admin_client: Te
 
     assert response.status_code == 200
     mock_set_template.assert_called_once_with(PushTemplate(**valid_push_template_payload))
+
+
+@patch("routers.subscriptions.set_subscription")
+@patch("routers.subscriptions.authorise")
+def test_subscribe_authorises_the_target(mock_authorise, mock_set_subscription, client):
+    mock_set_subscription.return_value = True
+
+    client.post(
+        "/subscribe",
+        json={"target": "https://example.org/users/1", "endpoint": "https://push/1"},
+    )
+
+    assert mock_authorise.call_args.args[1] == "https://example.org/users/1"
+
+
+@patch("routers.subscriptions.delete_subscription")
+@patch("routers.subscriptions.get_subscription")
+@patch("routers.subscriptions.authorise")
+def test_unsubscribe_authorises_against_the_stored_target(
+    mock_authorise, mock_get_subscription, mock_delete_subscription, client
+):
+    """The request carries only an endpoint, so the target has to come from storage."""
+    mock_get_subscription.return_value = MagicMock(target="https://example.org/users/1")
+    mock_delete_subscription.return_value = 1
+
+    client.post("/unsubscribe", json={"endpoint": "https://push/1"})
+
+    assert mock_authorise.call_args.args[1] == "https://example.org/users/1"
+
+
+@patch("routers.subscriptions.set_user")
+@patch("routers.subscriptions.authorise")
+def test_userprofile_authorises_the_uri(mock_authorise, mock_set_user, client):
+    mock_set_user.return_value = True
+
+    client.post("/userprofile", json={"uri": "https://example.org/users/1"})
+
+    assert mock_authorise.call_args.args[1] == "https://example.org/users/1"
