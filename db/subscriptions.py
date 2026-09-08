@@ -8,6 +8,19 @@ USERS_COLLECTION_NAME = "userprofiles"
 PUSH_TEMPLATES_COLLECTION_NAME = "push_templates"
 
 
+def normalise_type(activity_type):
+    """Return a canonical form of a notification type for template lookups.
+
+    A COAR Notify type is a set - ["Announce", "coar-notify:IngestAction"] means the same as the
+    other order - but it arrives as a list and was matched for equality, so a sender listing the
+    values in a different order found no template at all. Sorting on both write and read makes the
+    match order-independent.
+    """
+    if isinstance(activity_type, str):
+        return activity_type
+    return sorted(activity_type)
+
+
 async def set_subscription(subscription: Subscription):
     """Store a subscription, returning True when it was newly created.
 
@@ -64,10 +77,12 @@ async def set_user(userprofile: UserProfile):
 
 async def set_template(template: PushTemplate):
     adapter = await get_adapter()
+    data = template.model_dump(by_alias=True)
+    data["type"] = normalise_type(template.type)
     result = await adapter.update_one(
         PUSH_TEMPLATES_COLLECTION_NAME,
-        {"type": template.type, "language": template.language},
-        template.model_dump(by_alias=True),
+        {"type": data["type"], "language": template.language},
+        data,
         upsert=True,
     )
     return result.inserted
@@ -77,6 +92,6 @@ async def get_template(activity_type: str, language: str):
     adapter = await get_adapter()
     template = await adapter.find_one(
         PUSH_TEMPLATES_COLLECTION_NAME,
-        {"type": activity_type, "language": language},
+        {"type": normalise_type(activity_type), "language": language},
     )
     return PushTemplate(**template) if template is not None else None
