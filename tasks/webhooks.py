@@ -1,4 +1,3 @@
-import json
 import requests
 
 from db.models import Notification
@@ -10,7 +9,13 @@ def send_notification_to_webhook(notification: Notification, webhook_url: str) -
         response = requests.post(
             url=webhook_url,
             headers={"content-type": "application/ld+json"},
-            json=json.dumps(notification, default=str),
+            # json= takes the object to serialise, not a string. Passing a string sent a
+            # JSON-encoded string, and json.dumps(default=str) on a Pydantic model stringified
+            # it with repr(), so the receiver got something like
+            #   "id='urn:uuid:1' updated=datetime.datetime(...) at_context=[...]"
+            # which is valid JSON but not the notification. mode="json" renders the datetimes,
+            # and by_alias keeps "@context" and "ietf:cite-as".
+            json=notification.model_dump(by_alias=True, mode="json"),
             timeout=(10, 10),
         )
 
