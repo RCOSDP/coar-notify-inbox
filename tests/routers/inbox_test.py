@@ -4,6 +4,8 @@ import pytest
 
 from fastapi.testclient import TestClient
 
+from config import MAX_PAGE_SIZE
+
 
 def test_read_inbox_options(client: TestClient):
     response = client.options("/inbox/")
@@ -128,3 +130,7 @@ def test_read_inbox_pages_the_query(mock_get_notifications, mock_collection, cli
     client.get("/inbox/?page=3&page_size=10")
 
     mock_get_notifications.assert_called_once_with(page=3, page_size=10)
+
+
+def test_read_inbox_page_size_limit(client: TestClient):
+    assert client.get(f"/inbox/?page_size={MAX_PAGE_SIZE + 1}").status_code == 422

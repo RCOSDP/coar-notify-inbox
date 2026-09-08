@@ -12,7 +12,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 
-from config import PAGE_LIMIT, get_settings
+from config import MAX_PAGE_SIZE, PAGE_LIMIT, get_settings
 from db.models import Notification
 from db.notifications import (
     create_notification,
@@ -61,7 +61,7 @@ async def read_inbox_options():
 async def read_inbox(
     request: Request,
     page: int = Query(1, ge=1),
-    page_size: int = Query(PAGE_LIMIT, ge=1),
+    page_size: int = Query(PAGE_LIMIT, ge=1, le=MAX_PAGE_SIZE),
 ) -> JSONResponse:
     inbox_url = get_inbox_url(request)
     notifications = await get_notifications(page=page, page_size=page_size)

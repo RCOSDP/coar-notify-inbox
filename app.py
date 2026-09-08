@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Query
 
-from config import get_settings, PAGE_LIMIT
+from config import get_settings, MAX_PAGE_SIZE, PAGE_LIMIT
 from db.notifications import get_notifications, get_notifications_collection
 from routers import inbox_router, notification_state_router
 
@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
 
     @_app.get("/")
     async def home(request: Request, page: int = Query(1, ge=1),
-                   page_size: int = Query(PAGE_LIMIT, ge=1)):
+                   page_size: int = Query(PAGE_LIMIT, ge=1, le=MAX_PAGE_SIZE)):
         def ppjson(value, indent=2):
             return json.dumps({**value, "updated": value["updated"].isoformat()}, indent=indent)
 
