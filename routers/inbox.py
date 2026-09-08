@@ -1,4 +1,6 @@
 import json
+from urllib.parse import urlencode
+
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -10,9 +12,14 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 
-from config import get_settings
+from config import PAGE_LIMIT, get_settings
 from db.models import Notification
-from db.notifications import create_notification, get_notifications, get_notification
+from db.notifications import (
+    count_notifications,
+    create_notification,
+    get_notification,
+    get_notifications,
+)
 from services.push import send_webpush
 from tasks.webhooks import send_notification_to_webhook
 
@@ -31,6 +38,13 @@ def get_notification_links(notifications: list[Notification], base_url: str) -> 
     return [f"{base_url}/{notification['id']}" for notification in notifications]
 
 
+def build_page_url(base_url: str, page: int, page_size: int, target: str | None) -> str:
+    query = {"page": page, "page_size": page_size}
+    if target:
+        query["target"] = target
+    return f"{base_url}?{urlencode(query)}"
+
+
 @router.options("/", include_in_schema=False)
 @router.options("")
 async def read_inbox_options():
@@ -39,12 +53,37 @@ async def read_inbox_options():
 
 @router.get("/", include_in_schema=False)
 @router.get("")
-async def read_inbox(request: Request, target: str = Query(None)) -> JSONResponse:
+async def read_inbox(
+    request: Request,
+    target: str = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(PAGE_LIMIT, ge=1),
+) -> JSONResponse:
     inbox_url = get_inbox_url(request)
-    notifications = await get_notifications(target=target)
+    notifications = await get_notifications(
+        page=page, page_size=page_size, target=target
+    )
+    total = await count_notifications({"target.id": target} if target else {})
+
+    # The listing was capped at the first PAGE_LIMIT notifications with no way to reach the rest:
+    # the HTML index took page/page_size but this endpoint did not, so a consumer could not see
+    # anything older. The body keeps its shape, and paging is advertised with Link headers
+    # (RFC 8288), which is what a machine client can follow without parsing the payload.
+    headers = {"content-type": "application/ld+json"}
+    links = []
+    if page > 1:
+        links.append(
+            f'<{build_page_url(inbox_url, page - 1, page_size, target)}>; rel="prev"'
+        )
+    if page * page_size < total:
+        links.append(
+            f'<{build_page_url(inbox_url, page + 1, page_size, target)}>; rel="next"'
+        )
+    if links:
+        headers["Link"] = ", ".join(links)
 
     return JSONResponse(
-        headers={"content-type": "application/ld+json"},
+        headers=headers,
         content={
             "@context": "http://www.w3.org/ns/ldp",
             "@id": inbox_url,

@@ -12,9 +12,11 @@ def test_read_inbox_options(client: TestClient):
     assert response.headers["Accept-Post"] == "application/ld+json"
 
 
+@patch("routers.inbox.count_notifications")
 @patch("routers.inbox.get_notifications")
-def test_read_inbox(mock_get_notifications, client: TestClient):
+def test_read_inbox(mock_get_notifications, mock_count_notifications, client: TestClient):
     mock_get_notifications.return_value = []
+    mock_count_notifications.return_value = 0
 
     response = client.get("/inbox/")
 
@@ -24,6 +26,68 @@ def test_read_inbox(mock_get_notifications, client: TestClient):
         "@id": "http://testserver/inbox",
         "contains": [],
     }
+    # Nothing to page through, so no paging hints.
+    assert "Link" not in response.headers
+
+
+@patch("routers.inbox.count_notifications")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_advertises_the_next_page(
+    mock_get_notifications, mock_count_notifications, client: TestClient
+):
+    """The listing used to stop at the first page with no way to reach anything older."""
+    mock_get_notifications.return_value = []
+    mock_count_notifications.return_value = 120
+
+    response = client.get("/inbox/?page_size=50")
+
+    assert response.status_code == 200
+    assert 'rel="next"' in response.headers["Link"]
+    assert "page=2" in response.headers["Link"]
+    assert 'rel="prev"' not in response.headers["Link"]
+
+
+@patch("routers.inbox.count_notifications")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_advertises_both_directions_in_the_middle(
+    mock_get_notifications, mock_count_notifications, client: TestClient
+):
+    mock_get_notifications.return_value = []
+    mock_count_notifications.return_value = 120
+
+    response = client.get("/inbox/?page=2&page_size=50")
+
+    assert 'rel="next"' in response.headers["Link"]
+    assert 'rel="prev"' in response.headers["Link"]
+
+
+@patch("routers.inbox.count_notifications")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_keeps_the_target_filter_across_pages(
+    mock_get_notifications, mock_count_notifications, client: TestClient
+):
+    mock_get_notifications.return_value = []
+    mock_count_notifications.return_value = 120
+
+    response = client.get("/inbox/?target=https%3A%2F%2Fexample.org%2Fusers%2F1&page_size=50")
+
+    mock_count_notifications.assert_called_once_with(
+        {"target.id": "https://example.org/users/1"}
+    )
+    assert "target=https%3A%2F%2Fexample.org%2Fusers%2F1" in response.headers["Link"]
+
+
+@patch("routers.inbox.count_notifications")
+@patch("routers.inbox.get_notifications")
+def test_read_inbox_pages_the_query(
+    mock_get_notifications, mock_count_notifications, client: TestClient
+):
+    mock_get_notifications.return_value = []
+    mock_count_notifications.return_value = 0
+
+    client.get("/inbox/?page=3&page_size=10")
+
+    mock_get_notifications.assert_called_once_with(page=3, page_size=10, target=None)
 
 
 @patch("routers.inbox.send_webpush")
